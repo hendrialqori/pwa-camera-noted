@@ -1,69 +1,74 @@
-import { useState } from 'react'
-import { Toaster, toast } from 'sonner'
-import ImagePicker from './components/ImagePicker'
+import { useState } from "react";
+import { Toaster, toast } from "sonner";
+import ImagePicker from "./components/ImagePicker";
 
 export default function App() {
-  const [title, setTitle] = useState('')
-  const [images, setImages] = useState([])
-  const [note, setNote] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [title, setTitle] = useState("");
+  const [images, setImages] = useState([]);
+  const [note, setNote] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (event) => {
-    event.preventDefault()
+    event.preventDefault();
 
-    if (isSubmitting) return
+    if (isSubmitting) return;
 
     if (!title.trim()) {
-      toast.error('Title wajib diisi')
-      return
+      toast.error("Title wajib diisi");
+      return;
     }
 
     if (images.length === 0) {
-      toast.error('Minimal ambil 1 gambar')
-      return
+      toast.error("Minimal ambil 1 gambar");
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     const saveData = async () => {
       // Simulasi request API
       await new Promise((resolve) => {
-        setTimeout(resolve, 1500)
-      })
+        setTimeout(resolve, 1500);
+      });
 
       // Nanti bisa diganti fetch / axios
       return {
         title,
         images,
         note,
-      }
-    }
+      };
+    };
+
+    const saveDataPromise = () =>
+      new Promise((resolve) =>
+        setTimeout(() => resolve({ title, images, note }), 2000),
+      );
 
     try {
-      await toast.promise(saveData(), {
-        loading: 'Menyimpan data...',
-        success: 'Data berhasil disimpan',
-        error: 'Data gagal disimpan',
-      })
+      toast.promise(saveDataPromise, {
+        loading: "Menyimpan data...",
+        success: (data) => {
+          setTitle("");
+          setImages([]);
+          setNote("");
 
-      setTitle('')
-      setImages([])
-      setNote('')
+          return `${data.title} berhasil disimpan`;
+        },
+        error: "Data gagal disimpan",
+      });
     } catch (error) {
-      console.error('Submit error:', error)
+      console.error("Submit error:", error);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <>
       <main className="min-h-screen bg-gray-50 px-4 py-6">
         <div className="mx-auto w-full max-w-md">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">
-              Camera Notes
-            </h1>
+            <h1 className="text-2xl font-bold text-gray-900">Camera Notes</h1>
 
             <p className="mt-1 text-sm text-gray-500">
               Ambil gambar dan tambahkan catatan.
@@ -88,7 +93,7 @@ export default function App() {
                 type="text"
                 value={title}
                 onChange={(event) => {
-                  setTitle(event.target.value)
+                  setTitle(event.target.value);
                 }}
                 placeholder="Masukkan title"
                 disabled={isSubmitting}
@@ -112,10 +117,7 @@ export default function App() {
             </div>
 
             {/* IMAGE */}
-            <ImagePicker
-              images={images}
-              onChange={setImages}
-            />
+            <ImagePicker images={images} onChange={setImages} />
 
             {/* NOTE */}
             <div>
@@ -130,7 +132,7 @@ export default function App() {
                 id="note"
                 value={note}
                 onChange={(event) => {
-                  setNote(event.target.value)
+                  setNote(event.target.value);
                 }}
                 placeholder="Tambahkan catatan..."
                 rows={5}
@@ -181,5 +183,5 @@ export default function App() {
         </div>
       </main>
     </>
-  )
+  );
 }

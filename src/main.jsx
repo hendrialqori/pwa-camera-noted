@@ -15,6 +15,6 @@ if ("serviceWorker" in navigator) {
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <App />
-    <Toaster position="top-center" richColors closeButton />
+    <Toaster position="bottom-right" richColors closeButton />
   </StrictMode>,
 );
