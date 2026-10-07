@@ -7,10 +7,10 @@ export default function ImagePicker({ images, onChange }) {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
 
-  // default: kamera belakang
   const [facingMode, setFacingMode] = useState("environment");
 
-  // flash / torch
+  const [capturedImage, setCapturedImage] = useState(null);
+
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isFlashSupported, setIsFlashSupported] = useState(false);
 
@@ -19,91 +19,112 @@ export default function ImagePicker({ images, onChange }) {
       ideal: facingMode,
     },
     width: {
-      ideal: 1280,
+      ideal: 3840,
     },
     height: {
-      ideal: 720,
+      ideal: 2160,
     },
+  };
+
+  const getVideoTrack = () => {
+    const stream = webcamRef.current?.stream;
+
+    if (!stream) return null;
+
+    return stream.getVideoTracks()[0] ?? null;
+  };
+
+  const openCamera = () => {
+    setCameraError("");
+    setCapturedImage(null);
+    setIsCameraOpen(true);
+  };
+
+  const closeCamera = async () => {
+    if (isFlashOn) {
+      await toggleFlash(false);
+    }
+
+    setCapturedImage(null);
+    setIsCameraOpen(false);
   };
 
   const capture = useCallback(() => {
     const imageSrc = webcamRef.current?.getScreenshot();
 
-    if (!imageSrc) return;
+    if (!imageSrc) {
+      setCameraError("Gambar gagal diambil.");
+      return;
+    }
 
-    onChange([...images, imageSrc]);
-  }, [images, onChange]);
+    setCapturedImage(imageSrc);
+  }, []);
 
-  const removeImage = (index) => {
-    onChange(images.filter((_, imageIndex) => imageIndex !== index));
+  const retake = () => {
+    setCapturedImage(null);
   };
 
-  const openCamera = () => {
-    setCameraError("");
-    setIsCameraOpen(true);
-  };
+  const saveImage = async () => {
+    if (!capturedImage) return;
 
-  const closeCamera = async () => {
-    // matikan torch sebelum close camera
     if (isFlashOn) {
       await toggleFlash(false);
     }
 
+    // gambar terbaru masuk index 0
+    onChange([capturedImage, ...images]);
+
+    setCapturedImage(null);
     setIsCameraOpen(false);
   };
 
-  /**
-   * FRONT <-> BACK
-   */
+  const removeImage = (index) => {
+    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
+
+    onChange(nextImages);
+  };
+
   const switchCamera = async () => {
-    // matikan flash dulu ketika pindah camera
     if (isFlashOn) {
       await toggleFlash(false);
     }
+
+    setCameraError("");
+    setIsFlashSupported(false);
+    setIsFlashOn(false);
 
     setFacingMode((current) =>
       current === "environment" ? "user" : "environment",
     );
   };
 
-  /**
-   * Ambil MediaStreamTrack dari react-webcam
-   */
-  const getVideoTrack = () => {
-    const stream = webcamRef.current?.stream;
-
-    if (!stream) return null;
-
-    const tracks = stream.getVideoTracks();
-
-    return tracks[0] ?? null;
-  };
-
-  /**
-   * Cek apakah kamera/device support torch
-   */
   const handleUserMedia = () => {
     const track = getVideoTrack();
 
     if (!track) return;
 
     try {
+      const settings = track.getSettings?.();
+
+      console.log("Camera settings:", {
+        width: settings?.width,
+        height: settings?.height,
+        frameRate: settings?.frameRate,
+        facingMode: settings?.facingMode,
+      });
+
       const capabilities = track.getCapabilities?.();
 
-      const hasTorch = Boolean(capabilities?.torch);
-
-      setIsFlashSupported(hasTorch);
+      setIsFlashSupported(Boolean(capabilities?.torch));
       setIsFlashOn(false);
+      setCameraError("");
     } catch (error) {
-      console.error("Cannot read camera capabilities:", error);
+      console.error("Failed to read camera capabilities:", error);
 
       setIsFlashSupported(false);
     }
   };
 
-  /**
-   * Flash / Torch
-   */
   const toggleFlash = async (forceValue) => {
     const track = getVideoTrack();
 
@@ -116,6 +137,9 @@ export default function ImagePicker({ images, onChange }) {
 
       if (!capabilities?.torch) {
         setIsFlashSupported(false);
+
+        setCameraError("Flash tidak didukung oleh kamera ini.");
+
         return;
       }
 
@@ -128,10 +152,13 @@ export default function ImagePicker({ images, onChange }) {
       });
 
       setIsFlashOn(nextValue);
+      setCameraError("");
     } catch (error) {
       console.error("Failed to toggle flash:", error);
 
-      setCameraError("Flash tidak didukung oleh kamera atau browser ini.");
+      setCameraError(
+        "Flash tidak dapat digunakan pada browser atau kamera ini.",
+      );
     }
   };
 
@@ -141,172 +168,36 @@ export default function ImagePicker({ images, onChange }) {
         Gambar
       </label>
 
-      {!isCameraOpen && (
-        <button
-          type="button"
-          onClick={openCamera}
-          className="
-            w-full
-            rounded-xl
-            border
-            border-dashed
-            border-gray-300
-            bg-blue-900
-            px-4
-            py-4
-            text-sm
-            font-medium
-            text-white
-            transition
-            hover:border-gray-400
-            hover:bg-gray-50
-            active:scale-[0.99]
-          "
-        >
-          + Ambil Gambar
-        </button>
-      )}
+      {/* OPEN CAMERA */}
+      <button
+        type="button"
+        onClick={openCamera}
+        className="
+          w-full
+          rounded-xl
+          border
+          border-dashed
+          border-gray-300
+          bg-white
+          px-4
+          py-4
+          text-sm
+          font-medium
+          text-gray-700
+          transition
+          hover:border-gray-400
+          hover:bg-gray-50
+          active:scale-[0.99]
+        "
+      >
+        + Ambil Gambar
+      </button>
 
-      {isCameraOpen && (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-black">
-          {/* CAMERA */}
-          <div className="relative aspect-[3/4] w-full overflow-hidden bg-black">
-            <Webcam
-              key={facingMode}
-              ref={webcamRef}
-              audio={false}
-              mirrored={facingMode === "user"}
-              screenshotFormat="image/jpeg"
-              screenshotQuality={0.9}
-              videoConstraints={videoConstraints}
-              onUserMedia={handleUserMedia}
-              onUserMediaError={() => {
-                setCameraError(
-                  "Kamera tidak dapat diakses. Pastikan izin kamera sudah diberikan.",
-                );
-              }}
-              className="h-full w-full object-cover"
-            />
-
-            {/* CAMERA TOOLS */}
-            <div className="absolute left-0 right-0 top-0 flex items-center justify-between p-3">
-              {/* FLASH */}
-              <button
-                type="button"
-                disabled={!isFlashSupported}
-                onClick={() => toggleFlash()}
-                className={`
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-full
-                  text-lg
-                  text-white
-                  backdrop-blur
-                  ${
-                    isFlashSupported
-                      ? "bg-black/40"
-                      : "cursor-not-allowed bg-black/20 opacity-40"
-                  }
-                `}
-              >
-                {isFlashOn ? "⚡" : "⚡"}
-              </button>
-
-              {/* SWITCH CAMERA */}
-              <button
-                type="button"
-                onClick={switchCamera}
-                className="
-                  flex
-                  h-11
-                  w-11
-                  items-center
-                  justify-center
-                  rounded-full
-                  bg-black/40
-                  text-lg
-                  text-white
-                  backdrop-blur
-                "
-              >
-                ↻
-              </button>
-            </div>
-
-            {/* CAMERA LABEL */}
-            <div
-              className="
-                absolute
-                bottom-3
-                left-1/2
-                -translate-x-1/2
-                rounded-full
-                bg-black/40
-                px-3
-                py-1
-                text-xs
-                text-white
-                backdrop-blur
-              "
-            >
-              {facingMode === "environment"
-                ? "Kamera belakang"
-                : "Kamera depan"}
-            </div>
-          </div>
-
-          {/* CAMERA ACTIONS */}
-          <div className="flex flex-col gap-3 bg-white p-3">
-            <button
-              type="button"
-              onClick={capture}
-              className="
-                flex-1
-                rounded-xl
-                bg-blue-900
-                px-4
-                py-3
-                text-sm
-                font-semibold
-                text-white
-                active:scale-[0.99]
-              "
-            >
-              Ambil Foto
-            </button>
-            <button
-              type="button"
-              onClick={closeCamera}
-              className="
-                flex-1
-                rounded-xl
-                border
-                border-gray-300
-                px-4
-                py-3
-                text-sm
-                font-medium
-                text-gray-700
-              "
-            >
-              Tutup
-            </button>
-          </div>
-        </div>
-      )}
-
-      {cameraError && (
-        <p className="mt-2 text-sm text-red-600">{cameraError}</p>
-      )}
-
-      {/* IMAGE PREVIEW SLIDER */}
+      {/* IMAGE LIST */}
       {images.length > 0 && (
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">Preview</p>
+            <p className="text-sm font-medium text-gray-700">Foto</p>
 
             <p className="text-xs text-gray-500">{images.length} gambar</p>
           </div>
@@ -330,7 +221,7 @@ export default function ImagePicker({ images, onChange }) {
                 key={`${index}-${image.slice(-20)}`}
                 className="
                   relative
-                  min-w-full
+                  min-w-[85%]
                   snap-center
                   overflow-hidden
                   rounded-2xl
@@ -341,11 +232,15 @@ export default function ImagePicker({ images, onChange }) {
                   <img
                     src={image}
                     alt={`Gambar ${index + 1}`}
-                    className="h-full w-full object-cover"
+                    className="
+                      h-full
+                      w-full
+                      object-cover
+                    "
                   />
                 </div>
 
-                {/* NUMBER */}
+                {/* INDEX */}
                 <div
                   className="
                     absolute
@@ -363,7 +258,7 @@ export default function ImagePicker({ images, onChange }) {
                   {index + 1} / {images.length}
                 </div>
 
-                {/* REMOVE */}
+                {/* DELETE */}
                 <button
                   type="button"
                   onClick={() => removeImage(index)}
@@ -382,6 +277,7 @@ export default function ImagePicker({ images, onChange }) {
                     text-lg
                     text-white
                     backdrop-blur
+                    active:scale-95
                   "
                 >
                   ×
@@ -390,19 +286,354 @@ export default function ImagePicker({ images, onChange }) {
             ))}
           </div>
 
-          {/* DOT INDICATOR */}
-          <div className="mt-2 flex justify-center gap-1.5">
-            {images.map((_, index) => (
-              <div
-                key={index}
-                className="h-1.5 w-1.5 rounded-full bg-gray-300"
-              />
-            ))}
-          </div>
+          {images.length > 1 && (
+            <p
+              className="
+                mt-1
+                text-center
+                text-xs
+                text-gray-400
+              "
+            >
+              Geser untuk melihat foto lainnya
+            </p>
+          )}
+        </div>
+      )}
 
-          <p className="mt-2 text-center text-xs text-gray-400">
-            Geser untuk melihat foto lainnya
-          </p>
+      {/* FULLSCREEN CAMERA MODAL */}
+      {isCameraOpen && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[9999]
+            bg-black
+          "
+        >
+          {/* CAMERA */}
+          {!capturedImage && (
+            <>
+              <Webcam
+                key={facingMode}
+                ref={webcamRef}
+                audio={false}
+                mirrored={facingMode === "user"}
+                screenshotFormat="image/jpeg"
+                screenshotQuality={1}
+                forceScreenshotSourceSize
+                videoConstraints={videoConstraints}
+                onUserMedia={handleUserMedia}
+                onUserMediaError={(error) => {
+                  console.error("Camera error:", error);
+
+                  setCameraError(
+                    "Kamera tidak dapat diakses. Pastikan izin kamera sudah diberikan.",
+                  );
+                }}
+                className="
+                  absolute
+                  inset-0
+                  h-full
+                  w-full
+                  object-cover
+                "
+              />
+
+              {/* TOP GRADIENT */}
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  left-0
+                  right-0
+                  top-0
+                  h-32
+                  bg-gradient-to-b
+                  from-black/60
+                  to-transparent
+                "
+              />
+
+              {/* TOP CONTROL */}
+              <div
+                className="
+                  absolute
+                  left-0
+                  right-0
+                  top-0
+                  z-20
+                  flex
+                  items-center
+                  justify-between
+                  p-4
+                  pt-[max(1rem,env(safe-area-inset-top))]
+                "
+              >
+                {/* CLOSE */}
+                <button
+                  type="button"
+                  onClick={closeCamera}
+                  className="
+                    flex
+                    h-11
+                    w-11
+                    items-center
+                    justify-center
+                    rounded-full
+                    bg-black/40
+                    text-2xl
+                    text-white
+                    backdrop-blur
+                    active:scale-95
+                  "
+                >
+                  ×
+                </button>
+
+                <div className="flex items-center gap-3">
+                  {/* FLASH */}
+                  <button
+                    type="button"
+                    disabled={!isFlashSupported}
+                    onClick={() => toggleFlash()}
+                    className={`
+                      flex
+                      h-11
+                      w-11
+                      items-center
+                      justify-center
+                      rounded-full
+                      text-lg
+                      text-white
+                      backdrop-blur
+                      active:scale-95
+                      ${
+                        isFlashSupported
+                          ? isFlashOn
+                            ? "bg-white text-black"
+                            : "bg-black/40"
+                          : "cursor-not-allowed bg-black/20 opacity-40"
+                      }
+                    `}
+                  >
+                    ⚡
+                  </button>
+
+                  {/* SWITCH CAMERA */}
+                  <button
+                    type="button"
+                    onClick={switchCamera}
+                    className="
+                      flex
+                      h-11
+                      w-11
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-black/40
+                      text-xl
+                      text-white
+                      backdrop-blur
+                      active:scale-95
+                    "
+                  >
+                    ↻
+                  </button>
+                </div>
+              </div>
+
+              {/* CAMERA INFO */}
+              <div
+                className="
+                  absolute
+                  left-1/2
+                  top-20
+                  z-20
+                  -translate-x-1/2
+                  rounded-full
+                  bg-black/35
+                  px-3
+                  py-1.5
+                  text-xs
+                  text-white
+                  backdrop-blur
+                "
+              >
+                {facingMode === "environment"
+                  ? "Kamera belakang"
+                  : "Kamera depan"}
+              </div>
+
+              {/* ERROR */}
+              {cameraError && (
+                <div
+                  className="
+                    absolute
+                    left-4
+                    right-4
+                    top-32
+                    z-20
+                    rounded-xl
+                    bg-red-600/90
+                    px-4
+                    py-3
+                    text-center
+                    text-sm
+                    text-white
+                    backdrop-blur
+                  "
+                >
+                  {cameraError}
+                </div>
+              )}
+
+              {/* BOTTOM GRADIENT */}
+              <div
+                className="
+                  pointer-events-none
+                  absolute
+                  bottom-0
+                  left-0
+                  right-0
+                  h-44
+                  bg-gradient-to-t
+                  from-black/70
+                  to-transparent
+                "
+              />
+
+              {/* SHUTTER */}
+              <div
+                className="
+                  absolute
+                  bottom-0
+                  left-0
+                  right-0
+                  z-20
+                  flex
+                  justify-center
+                  pb-[max(2rem,env(safe-area-inset-bottom))]
+                  pt-8
+                "
+              >
+                <button
+                  type="button"
+                  onClick={capture}
+                  aria-label="Ambil foto"
+                  className="
+                    flex
+                    h-20
+                    w-20
+                    items-center
+                    justify-center
+                    rounded-full
+                    border-4
+                    border-white
+                    bg-transparent
+                    active:scale-90
+                  "
+                >
+                  <div
+                    className="
+                      h-16
+                      w-16
+                      rounded-full
+                      bg-white
+                    "
+                  />
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* CAPTURE PREVIEW */}
+          {capturedImage && (
+            <div
+              className="
+                flex
+                h-full
+                flex-col
+                bg-black
+              "
+            >
+              {/* IMAGE */}
+              <div
+                className="
+                  relative
+                  min-h-0
+                  flex-1
+                  bg-black
+                "
+              >
+                <img
+                  src={capturedImage}
+                  alt="Preview hasil foto"
+                  className="
+                    absolute
+                    inset-0
+                    h-full
+                    w-full
+                    object-contain
+                  "
+                />
+              </div>
+
+              {/* PREVIEW ACTION */}
+              <div
+                className="
+                  shrink-0
+                  bg-black
+                  px-4
+                  pb-[max(2rem,env(safe-area-inset-bottom))]
+                  pt-4
+                "
+              >
+                <div className="flex gap-3">
+                  {/* RETAKE */}
+                  <button
+                    type="button"
+                    onClick={retake}
+                    className="
+                      flex-1
+                      rounded-2xl
+                      border
+                      border-white/30
+                      bg-white/10
+                      px-4
+                      py-4
+                      text-sm
+                      font-semibold
+                      text-white
+                      backdrop-blur
+                      active:scale-[0.98]
+                    "
+                  >
+                    Ambil Ulang
+                  </button>
+
+                  {/* SAVE */}
+                  <button
+                    type="button"
+                    onClick={saveImage}
+                    className="
+                      flex-1
+                      rounded-2xl
+                      bg-white
+                      px-4
+                      py-4
+                      text-sm
+                      font-semibold
+                      text-black
+                      active:scale-[0.98]
+                    "
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
