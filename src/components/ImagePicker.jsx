@@ -1,20 +1,21 @@
-import { useCallback, useRef, useState } from "react";
-import Webcam from "react-webcam";
+import { useCallback, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import Webcam from 'react-webcam'
 
 export default function ImagePicker({ images, onChange }) {
-  const webcamRef = useRef(null);
+  const webcamRef = useRef(null)
 
-  const [isCameraOpen, setIsCameraOpen] = useState(false);
-  const [cameraError, setCameraError] = useState("");
+  const [isCameraOpen, setIsCameraOpen] = useState(false)
+  const [cameraError, setCameraError] = useState('')
 
-  const [facingMode, setFacingMode] = useState("environment");
+  const [facingMode, setFacingMode] = useState('environment')
 
-  const [capturedImage, setCapturedImage] = useState(null);
+  const [capturedImage, setCapturedImage] = useState(null)
 
-  const [isFlashOn, setIsFlashOn] = useState(false);
-  const [isFlashSupported, setIsFlashSupported] = useState(false);
+  const [isFlashOn, setIsFlashOn] = useState(false)
+  const [isFlashSupported, setIsFlashSupported] = useState(false)
 
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false)
 
   const videoConstraints = {
     facingMode: {
@@ -26,142 +27,163 @@ export default function ImagePicker({ images, onChange }) {
     height: {
       ideal: 2160,
     },
-  };
+  }
 
   const getVideoTrack = () => {
-    const stream = webcamRef.current?.stream;
+    const stream = webcamRef.current?.stream
 
-    if (!stream) return null;
+    if (!stream) return null
 
-    return stream.getVideoTracks()[0] ?? null;
-  };
+    return stream.getVideoTracks()[0] ?? null
+  }
 
   const openCamera = () => {
-    setCameraError("");
-    setCapturedImage(null);
-    setIsCameraOpen(true);
-  };
+    setCameraError('')
+    setCapturedImage(null)
+    setIsCameraOpen(true)
+  }
 
   const closeCamera = async () => {
     if (isFlashOn) {
-      await toggleFlash(false);
+      await toggleFlash(false)
     }
 
-    setCapturedImage(null);
-    setCameraError("");
-    setIsCapturing(false);
-    setIsCameraOpen(false);
-  };
+    setCapturedImage(null)
+    setCameraError('')
+    setIsCapturing(false)
+    setIsCameraOpen(false)
+  }
 
   const capture = useCallback(async () => {
-    if (isCapturing) return;
+    if (isCapturing) return
 
-    setIsCapturing(true);
-    setCameraError("");
+    flushSync(() => {
+      setIsCapturing(true)
+      setCameraError('')
+    })
 
     try {
-      await new Promise((resolve) => requestAnimationFrame(resolve));
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve)
+        })
+      })
 
-      const imageSrc = webcamRef.current?.getScreenshot();
+      const imageSrc =
+        webcamRef.current?.getScreenshot()
 
       if (!imageSrc) {
-        setCameraError("Gambar gagal diambil.");
-        return;
+        setCameraError('Gambar gagal diambil.')
+        return
       }
 
-      setCapturedImage(imageSrc);
+      setCapturedImage(imageSrc)
     } catch (error) {
-      console.error("Capture error:", error);
+      console.error('Capture error:', error)
 
-      setCameraError("Gambar gagal diambil.");
+      setCameraError('Gambar gagal diambil.')
     } finally {
-      setIsCapturing(false);
+      setIsCapturing(false)
     }
-  }, [isCapturing]);
+  }, [isCapturing])
 
   const retake = () => {
-    setCapturedImage(null);
-    setCameraError("");
-  };
+    setCapturedImage(null)
+    setCameraError('')
+  }
 
   const saveImage = async () => {
-    if (!capturedImage) return;
+    if (!capturedImage) return
 
     if (isFlashOn) {
-      await toggleFlash(false);
+      await toggleFlash(false)
     }
 
-    // gambar terbaru masuk index 0
-    onChange([capturedImage, ...images]);
+    // gambar terbaru masuk ke index 0
+    onChange([capturedImage, ...images])
 
-    setCapturedImage(null);
-    setCameraError("");
-    setIsCameraOpen(false);
-  };
+    setCapturedImage(null)
+    setCameraError('')
+    setIsCameraOpen(false)
+  }
 
   const removeImage = (index) => {
-    const nextImages = images.filter((_, imageIndex) => imageIndex !== index);
+    const nextImages = images.filter(
+      (_, imageIndex) => imageIndex !== index,
+    )
 
-    onChange(nextImages);
-  };
+    onChange(nextImages)
+  }
 
   const switchCamera = async () => {
+    if (isCapturing) return
+
     if (isFlashOn) {
-      await toggleFlash(false);
+      await toggleFlash(false)
     }
 
-    setCameraError("");
-    setIsFlashSupported(false);
-    setIsFlashOn(false);
+    setCameraError('')
+    setIsFlashSupported(false)
+    setIsFlashOn(false)
 
     setFacingMode((current) =>
-      current === "environment" ? "user" : "environment",
-    );
-  };
+      current === 'environment'
+        ? 'user'
+        : 'environment',
+    )
+  }
 
   const handleUserMedia = () => {
-    const track = getVideoTrack();
+    const track = getVideoTrack()
 
-    if (!track) return;
+    if (!track) return
 
     try {
-      const settings = track.getSettings?.();
+      const settings = track.getSettings?.()
 
-      console.log("Camera settings:", {
+      console.log('Camera settings:', {
         width: settings?.width,
         height: settings?.height,
         frameRate: settings?.frameRate,
         facingMode: settings?.facingMode,
-      });
+      })
 
-      const capabilities = track.getCapabilities?.();
+      const capabilities = track.getCapabilities?.()
 
-      setIsFlashSupported(Boolean(capabilities?.torch));
-      setIsFlashOn(false);
-      setCameraError("");
+      setIsFlashSupported(Boolean(capabilities?.torch))
+      setIsFlashOn(false)
+      setCameraError('')
     } catch (error) {
-      console.error("Failed to read camera capabilities:", error);
+      console.error(
+        'Failed to read camera capabilities:',
+        error,
+      )
 
-      setIsFlashSupported(false);
+      setIsFlashSupported(false)
     }
-  };
+  }
 
   const toggleFlash = async (forceValue) => {
-    const track = getVideoTrack();
+    const track = getVideoTrack()
 
-    if (!track) return;
+    if (!track) return
 
-    const nextValue = typeof forceValue === "boolean" ? forceValue : !isFlashOn;
+    const nextValue =
+      typeof forceValue === 'boolean'
+        ? forceValue
+        : !isFlashOn
 
     try {
-      const capabilities = track.getCapabilities?.();
+      const capabilities = track.getCapabilities?.()
 
       if (!capabilities?.torch) {
-        setIsFlashSupported(false);
+        setIsFlashSupported(false)
 
-        setCameraError("Flash tidak didukung oleh kamera ini.");
+        setCameraError(
+          'Flash tidak didukung oleh kamera ini.',
+        )
 
-        return;
+        return
       }
 
       await track.applyConstraints({
@@ -170,18 +192,21 @@ export default function ImagePicker({ images, onChange }) {
             torch: nextValue,
           },
         ],
-      });
+      })
 
-      setIsFlashOn(nextValue);
-      setCameraError("");
+      setIsFlashOn(nextValue)
+      setCameraError('')
     } catch (error) {
-      console.error("Failed to toggle flash:", error);
+      console.error(
+        'Failed to toggle flash:',
+        error,
+      )
 
       setCameraError(
-        "Flash tidak dapat digunakan pada browser atau kamera ini.",
-      );
+        'Flash tidak dapat digunakan pada browser atau kamera ini.',
+      )
     }
-  };
+  }
 
   return (
     <div>
@@ -218,9 +243,13 @@ export default function ImagePicker({ images, onChange }) {
       {images.length > 0 && (
         <div className="mt-4">
           <div className="mb-2 flex items-center justify-between">
-            <p className="text-sm font-medium text-gray-700">Foto</p>
+            <p className="text-sm font-medium text-gray-700">
+              Foto
+            </p>
 
-            <p className="text-xs text-gray-500">{images.length} gambar</p>
+            <p className="text-xs text-gray-500">
+              {images.length} gambar
+            </p>
           </div>
 
           <div
@@ -336,18 +365,21 @@ export default function ImagePicker({ images, onChange }) {
                 key={facingMode}
                 ref={webcamRef}
                 audio={false}
-                mirrored={facingMode === "user"}
+                mirrored={facingMode === 'user'}
                 screenshotFormat="image/jpeg"
                 screenshotQuality={1}
                 forceScreenshotSourceSize
                 videoConstraints={videoConstraints}
                 onUserMedia={handleUserMedia}
                 onUserMediaError={(error) => {
-                  console.error("Camera error:", error);
+                  console.error(
+                    'Camera error:',
+                    error,
+                  )
 
                   setCameraError(
-                    "Kamera tidak dapat diakses. Pastikan izin kamera sudah diberikan.",
-                  );
+                    'Kamera tidak dapat diakses. Pastikan izin kamera sudah diberikan.',
+                  )
                 }}
                 className="
                   absolute
@@ -358,18 +390,18 @@ export default function ImagePicker({ images, onChange }) {
                 "
               />
 
-              {/* CAPTURE LOADING */}
+              {/* LOADING LANGSUNG SAAT TOMBOL DIKLIK */}
               {isCapturing && (
                 <div
                   className="
                     absolute
                     inset-0
-                    z-40
+                    z-50
                     flex
                     flex-col
                     items-center
                     justify-center
-                    bg-black/40
+                    bg-black/50
                   "
                 >
                   <div
@@ -454,7 +486,9 @@ export default function ImagePicker({ images, onChange }) {
                   {/* FLASH */}
                   <button
                     type="button"
-                    disabled={!isFlashSupported || isCapturing}
+                    disabled={
+                      !isFlashSupported || isCapturing
+                    }
                     onClick={() => toggleFlash()}
                     className={`
                       flex
@@ -469,9 +503,9 @@ export default function ImagePicker({ images, onChange }) {
                       ${
                         isFlashSupported
                           ? isFlashOn
-                            ? "bg-white text-black"
-                            : "bg-black/40 text-white"
-                          : "cursor-not-allowed bg-black/20 text-white opacity-40"
+                            ? 'bg-white text-black'
+                            : 'bg-black/40 text-white'
+                          : 'cursor-not-allowed bg-black/20 text-white opacity-40'
                       }
                     `}
                   >
@@ -520,9 +554,9 @@ export default function ImagePicker({ images, onChange }) {
                   backdrop-blur
                 "
               >
-                {facingMode === "environment"
-                  ? "Kamera belakang"
-                  : "Kamera depan"}
+                {facingMode === 'environment'
+                  ? 'Kamera belakang'
+                  : 'Kamera depan'}
               </div>
 
               {/* ERROR */}
@@ -595,8 +629,8 @@ export default function ImagePicker({ images, onChange }) {
                     transition
                     ${
                       isCapturing
-                        ? "cursor-not-allowed opacity-50"
-                        : "active:scale-90"
+                        ? 'cursor-not-allowed opacity-50'
+                        : 'active:scale-90'
                     }
                   `}
                 >
@@ -701,5 +735,5 @@ export default function ImagePicker({ images, onChange }) {
         </div>
       )}
     </div>
-  );
+  )
 }
