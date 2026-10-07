@@ -14,6 +14,8 @@ export default function ImagePicker({ images, onChange }) {
   const [isFlashOn, setIsFlashOn] = useState(false);
   const [isFlashSupported, setIsFlashSupported] = useState(false);
 
+  const [isCapturing, setIsCapturing] = useState(false);
+
   const videoConstraints = {
     facingMode: {
       ideal: facingMode,
@@ -46,22 +48,40 @@ export default function ImagePicker({ images, onChange }) {
     }
 
     setCapturedImage(null);
+    setCameraError("");
+    setIsCapturing(false);
     setIsCameraOpen(false);
   };
 
-  const capture = useCallback(() => {
-    const imageSrc = webcamRef.current?.getScreenshot();
+  const capture = useCallback(async () => {
+    if (isCapturing) return;
 
-    if (!imageSrc) {
+    setIsCapturing(true);
+    setCameraError("");
+
+    try {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+
+      const imageSrc = webcamRef.current?.getScreenshot();
+
+      if (!imageSrc) {
+        setCameraError("Gambar gagal diambil.");
+        return;
+      }
+
+      setCapturedImage(imageSrc);
+    } catch (error) {
+      console.error("Capture error:", error);
+
       setCameraError("Gambar gagal diambil.");
-      return;
+    } finally {
+      setIsCapturing(false);
     }
-
-    setCapturedImage(imageSrc);
-  }, []);
+  }, [isCapturing]);
 
   const retake = () => {
     setCapturedImage(null);
+    setCameraError("");
   };
 
   const saveImage = async () => {
@@ -75,6 +95,7 @@ export default function ImagePicker({ images, onChange }) {
     onChange([capturedImage, ...images]);
 
     setCapturedImage(null);
+    setCameraError("");
     setIsCameraOpen(false);
   };
 
@@ -240,7 +261,6 @@ export default function ImagePicker({ images, onChange }) {
                   />
                 </div>
 
-                {/* INDEX */}
                 <div
                   className="
                     absolute
@@ -258,7 +278,6 @@ export default function ImagePicker({ images, onChange }) {
                   {index + 1} / {images.length}
                 </div>
 
-                {/* DELETE */}
                 <button
                   type="button"
                   onClick={() => removeImage(index)}
@@ -301,7 +320,7 @@ export default function ImagePicker({ images, onChange }) {
         </div>
       )}
 
-      {/* FULLSCREEN CAMERA MODAL */}
+      {/* FULLSCREEN CAMERA */}
       {isCameraOpen && (
         <div
           className="
@@ -311,7 +330,6 @@ export default function ImagePicker({ images, onChange }) {
             bg-black
           "
         >
-          {/* CAMERA */}
           {!capturedImage && (
             <>
               <Webcam
@@ -340,6 +358,45 @@ export default function ImagePicker({ images, onChange }) {
                 "
               />
 
+              {/* CAPTURE LOADING */}
+              {isCapturing && (
+                <div
+                  className="
+                    absolute
+                    inset-0
+                    z-40
+                    flex
+                    flex-col
+                    items-center
+                    justify-center
+                    bg-black/40
+                  "
+                >
+                  <div
+                    className="
+                      h-12
+                      w-12
+                      animate-spin
+                      rounded-full
+                      border-4
+                      border-white/30
+                      border-t-white
+                    "
+                  />
+
+                  <p
+                    className="
+                      mt-4
+                      text-sm
+                      font-medium
+                      text-white
+                    "
+                  >
+                    Mengambil foto...
+                  </p>
+                </div>
+              )}
+
               {/* TOP GRADIENT */}
               <div
                 className="
@@ -355,7 +412,7 @@ export default function ImagePicker({ images, onChange }) {
                 "
               />
 
-              {/* TOP CONTROL */}
+              {/* TOP CONTROLS */}
               <div
                 className="
                   absolute
@@ -374,6 +431,7 @@ export default function ImagePicker({ images, onChange }) {
                 <button
                   type="button"
                   onClick={closeCamera}
+                  disabled={isCapturing}
                   className="
                     flex
                     h-11
@@ -386,6 +444,7 @@ export default function ImagePicker({ images, onChange }) {
                     text-white
                     backdrop-blur
                     active:scale-95
+                    disabled:opacity-40
                   "
                 >
                   ×
@@ -395,7 +454,7 @@ export default function ImagePicker({ images, onChange }) {
                   {/* FLASH */}
                   <button
                     type="button"
-                    disabled={!isFlashSupported}
+                    disabled={!isFlashSupported || isCapturing}
                     onClick={() => toggleFlash()}
                     className={`
                       flex
@@ -405,15 +464,14 @@ export default function ImagePicker({ images, onChange }) {
                       justify-center
                       rounded-full
                       text-lg
-                      text-white
                       backdrop-blur
                       active:scale-95
                       ${
                         isFlashSupported
                           ? isFlashOn
                             ? "bg-white text-black"
-                            : "bg-black/40"
-                          : "cursor-not-allowed bg-black/20 opacity-40"
+                            : "bg-black/40 text-white"
+                          : "cursor-not-allowed bg-black/20 text-white opacity-40"
                       }
                     `}
                   >
@@ -424,6 +482,7 @@ export default function ImagePicker({ images, onChange }) {
                   <button
                     type="button"
                     onClick={switchCamera}
+                    disabled={isCapturing}
                     className="
                       flex
                       h-11
@@ -436,6 +495,7 @@ export default function ImagePicker({ images, onChange }) {
                       text-white
                       backdrop-blur
                       active:scale-95
+                      disabled:opacity-40
                     "
                   >
                     ↻
@@ -473,7 +533,7 @@ export default function ImagePicker({ images, onChange }) {
                     left-4
                     right-4
                     top-32
-                    z-20
+                    z-30
                     rounded-xl
                     bg-red-600/90
                     px-4
@@ -520,8 +580,9 @@ export default function ImagePicker({ images, onChange }) {
                 <button
                   type="button"
                   onClick={capture}
+                  disabled={isCapturing}
                   aria-label="Ambil foto"
-                  className="
+                  className={`
                     flex
                     h-20
                     w-20
@@ -531,8 +592,13 @@ export default function ImagePicker({ images, onChange }) {
                     border-4
                     border-white
                     bg-transparent
-                    active:scale-90
-                  "
+                    transition
+                    ${
+                      isCapturing
+                        ? "cursor-not-allowed opacity-50"
+                        : "active:scale-90"
+                    }
+                  `}
                 >
                   <div
                     className="
@@ -579,7 +645,7 @@ export default function ImagePicker({ images, onChange }) {
                 />
               </div>
 
-              {/* PREVIEW ACTION */}
+              {/* ACTIONS */}
               <div
                 className="
                   shrink-0
@@ -590,7 +656,6 @@ export default function ImagePicker({ images, onChange }) {
                 "
               >
                 <div className="flex gap-3">
-                  {/* RETAKE */}
                   <button
                     type="button"
                     onClick={retake}
@@ -612,7 +677,6 @@ export default function ImagePicker({ images, onChange }) {
                     Ambil Ulang
                   </button>
 
-                  {/* SAVE */}
                   <button
                     type="button"
                     onClick={saveImage}
