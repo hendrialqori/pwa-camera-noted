@@ -4,13 +4,13 @@ import {
   isSupported,
   onMessage,
   onRegistered,
-  register
+  register,
 } from "firebase/messaging";
+import { getInstallations, getId } from "firebase/installations";
 
 import { app } from "../../firebase";
-import { WEB_PUSH_CERTIFICATE_KEY } from "../constant/firebase";
-
-const VAPID_KEY = WEB_PUSH_CERTIFICATE_KEY;
+import { VAPID_KEY } from "../constant/firebase";
+import { CAMERA_NOTES_INSTALLATION_ID } from "../constant/localStorage";
 
 export async function setupPushNotifications(
   onNotification,
@@ -31,7 +31,10 @@ export async function setupPushNotifications(
   }
 
   const sw = await navigator.serviceWorker.register(
-    "firebase-messaging-sw.js"
+    "/firebase-messaging-sw.js",
+    {
+      scope: "/firebase-cloud-messaging-push-scope/"
+    }
   );
 
   const messaging = getMessaging(app);
@@ -41,9 +44,25 @@ export async function setupPushNotifications(
     (installationId) => {
       console.log("FCM Installation ID:", installationId);
 
+      let storedInstallationId
+
+      storedInstallationId = localStorage.getItem(
+        CAMERA_NOTES_INSTALLATION_ID
+      );
+
+      if (!storedInstallationId) {
+        console.log("No stored installation ID found. Storing new ID.");
+        // Menyimpan FID terbaru di browser
+        localStorage.setItem(
+          CAMERA_NOTES_INSTALLATION_ID,
+          installationId
+        );
+        storedInstallationId = installationId;
+      }
+
       // Send this ID to your secure backend
       // and associate it with the current user.
-      onRegistration?.(installationId);
+      onRegistration?.(storedInstallationId);
     }
   );
 
@@ -60,6 +79,7 @@ export async function setupPushNotifications(
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: sw
     });
+
   } catch (error) {
     unsubscribeRegistration();
     unsubscribeMessage();
@@ -72,8 +92,7 @@ export async function setupPushNotifications(
   };
 }
 
-
-export async function testLocalNotification() {
+export async function testLocalNotification({ message = "Push notification local test berhasil!" } = {}) {
   if (!("Notification" in window)) {
     throw new Error("Browser notifications unsupported");
   }
@@ -93,7 +112,17 @@ export async function testLocalNotification() {
   );
 
   await registration.showNotification("Camera Notes", {
-    body: "Push notification local test berhasil!",
+    body: message,
     tag: "camera-notes-test"
   });
 }
+
+// Mengambil Installation ID lama dari Firebase
+export async function getExistingInstallationId() {
+  const installations = getInstallations(app);
+
+  // Jika sudah ada, gunakan ID lama.
+  // Jika belum ada, Firebase membuat ID baru.
+  return await getId(installations);
+}
+

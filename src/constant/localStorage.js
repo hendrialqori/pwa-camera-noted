@@ -1,0 +1,1 @@
+export const CAMERA_NOTES_INSTALLATION_ID = "camera_notes_installation_id";
