@@ -11,6 +11,7 @@ import {
 } from "./utils/api";
 import { app } from "../firebase";
 import { VAPID_KEY } from "./constant/firebase";
+import { sleep } from "./utils/helper";
 
 // Halaman sementara khusus pengujian Firebase Push Notification.
 export default function App() {
@@ -40,6 +41,8 @@ export default function App() {
         if (active) setFidFromGetId(id);
       })
       .catch((error) => console.error("Gagal mengambil FID:", error));
+
+    initializePushNotifications()
 
     return () => {
       active = false;
@@ -80,8 +83,8 @@ export default function App() {
             })
             .catch((error) => {
               setStatus("FCM terdaftar, tetapi sinkronisasi backend gagal");
-              console.error("Sync FID gagal:", error);
-              toast.error("Registrasi FCM sukses, penyimpanan backend gagal");
+              console.error("Sync FID gagal:", error.response.data.message || error);
+              toast.warning(error.response.data.message ?? "Registrasi FCM sukses, penyimpanan backend gagal");
             });
         }
       );
@@ -102,6 +105,12 @@ export default function App() {
       registeringRef.current = false;
       setIsRegistering(false);
     }
+  }
+
+  async function initializePushNotifications() {
+    await sleep(500); // Tunggu sebentar sebelum memulai setup
+
+    handleRegister()
   }
 
   // Tes notifikasi lokal: bukan pengiriman FCM dari Express.
