@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const VITE_ENDPOINT_URL = "https://3d34-2404-c0-ca01-7356-1521-9088-3493-6333.ngrok-free.app/api"; // Replace with your actual backend URL
+const VITE_ENDPOINT_URL = "https://aylin-sphygmoid-pierce.ngrok-free.dev/api"; // Replace with your actual backend URL
 
 export const syncInstallationId = async (installationId) => {
 	try {

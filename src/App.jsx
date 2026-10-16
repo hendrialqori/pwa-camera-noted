@@ -191,11 +191,8 @@ export default function App() {
   );
 }
 
-// ===============================================================
-// KODE APP.JSX LAMA — DINONAKTIFKAN SEMENTARA, TIDAK DIHAPUS
-// Hapus prefiks // jika ingin memulihkan komponen lama.
-// ===============================================================
-//
+
+
 // import { useEffect, useRef, useState } from "react";
 // import { toast } from "sonner";
 // import ImagePicker from "./components/ImagePicker";
