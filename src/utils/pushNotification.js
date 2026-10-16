@@ -11,6 +11,7 @@ import { getInstallations, getId } from "firebase/installations";
 import { app } from "../../firebase";
 import { VAPID_KEY } from "../constant/firebase";
 import { CAMERA_NOTES_INSTALLATION_ID } from "../constant/localStorage";
+import { playNotificationSound } from "./soundNotification";
 
 export async function setupPushNotifications(
   onNotification,
@@ -68,8 +69,9 @@ export async function setupPushNotifications(
 
   const unsubscribeMessage = onMessage(
     messaging,
-    (payload) => {
-      console.log("Foreground notification:", payload);
+    async (payload) => {
+      console.log("[FCM] PESAN DITERIMA:", payload);
+
       onNotification?.(payload);
     }
   );
