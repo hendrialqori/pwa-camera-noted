@@ -184,9 +184,8 @@ export default function App() {
           // Memperbarui status
           setStatus("FCM terdaftar, menyimpan ke backend...");
 
-
           const storedInstallationId = localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
-          if (storedInstallationId) {
+          if (storedInstallationId === fid) {
             setStatus("FCM Connected - Backend Synced");
             return
           }
