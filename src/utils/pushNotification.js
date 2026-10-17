@@ -60,6 +60,8 @@ export async function setupPushNotifications(onNotification, onRegistration) {
 		});
 
 	} catch (error) {
+		console.error("Error setting up push notifications:", error);
+
 		unsubscribeRegistration();
 		unsubscribeMessage();
 

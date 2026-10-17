@@ -13,6 +13,7 @@ import {
   sendBroadcastNotification,
   syncInstallationId,
 } from "./utils/api";
+import { CAMERA_NOTES_INSTALLATION_ID } from "./constant/localStorage";
 
 // Lokasi file suara di folder public
 const SOUND_URL = "/message.mp3";
@@ -182,6 +183,13 @@ export default function App() {
 
           // Memperbarui status
           setStatus("FCM terdaftar, menyimpan ke backend...");
+
+
+          const storedInstallationId = localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
+          if (storedInstallationId) {
+            setStatus("FCM Connected - Backend Synced");
+            return
+          }
 
           // Menyimpan Installation ID ke Express
           syncInstallationId(fid)
@@ -385,7 +393,7 @@ export default function App() {
             >
               Test Local Notification
             </button>
-             <button
+            <button
               type="button"
               onClick={checkPushSubscription}
               className={`${buttonClass} bg-green-800`}
