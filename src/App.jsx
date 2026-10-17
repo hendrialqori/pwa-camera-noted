@@ -34,6 +34,7 @@ export default function App() {
 
   // State Sound
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [debugInfo, setDebugInfo] = useState(null);
 
   // Referensi listener Firebase
   const cleanupRef = useRef(null);
@@ -302,6 +303,53 @@ export default function App() {
     }
   };
 
+const handleDebugFCM = async () => {
+  try {
+    // Periksa mode dan origin aplikasi
+    const info = {
+      origin: window.location.origin,
+      standalone: window.matchMedia(
+        "(display-mode: standalone)"
+      ).matches,
+      permission: Notification.permission,
+      controller:
+        navigator.serviceWorker.controller?.scriptURL ?? null,
+      workers: [],
+    };
+
+    // Ambil seluruh registrasi Service Worker
+    const registrations =
+      await navigator.serviceWorker.getRegistrations();
+
+    for (const sw of registrations) {
+      // Periksa subscription setiap registrasi
+      const subscription =
+        await sw.pushManager.getSubscription();
+
+      info.workers.push({
+        script: sw.active?.scriptURL ?? null,
+        scope: sw.scope,
+        subscribed: Boolean(subscription),
+        endpointOrigin: subscription
+          ? new URL(subscription.endpoint).origin
+          : null,
+      });
+    }
+
+    // Tampilkan hasil pada halaman
+    setDebugInfo(info);
+
+    console.log("[FCM DIAGNOSTIC]", info);
+  } catch (error) {
+    console.error("[FCM DIAGNOSTIC ERROR]", error);
+
+    setDebugInfo({
+      error: error.message,
+    });
+  }
+};
+
+
   // Class CSS reusable
   const inputClass =
     "w-full rounded-xl border border-gray-300 p-3 text-sm";
@@ -512,6 +560,28 @@ export default function App() {
               dari database MySQL untuk broadcast.
             </p>
           </form>
+
+
+          <section className="space-y-3 rounded-2xl bg-white p-5">
+            <h2 className="text-lg font-bold">
+              FCM Diagnostic
+            </h2>
+
+            <button
+              type="button"
+              onClick={handleDebugFCM}
+              className="w-full rounded-xl bg-purple-600 p-3 text-white"
+            >
+              Check FCM Subscription
+            </button>
+
+            {debugInfo && (
+              <pre className="overflow-x-auto whitespace-pre-wrap break-all rounded-xl bg-gray-100 p-3 text-xs">
+                {JSON.stringify(debugInfo, null, 2)}
+              </pre>
+            )}
+          </section>
+
 
         </div>
       </main>
