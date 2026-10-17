@@ -40,6 +40,7 @@ export default function App() {
 
   // Mencegah registrasi bersamaan
   const registeringRef = useRef(false);
+  const alreadyRegisteredRef = useRef(false);
 
   // Referensi audio
   const audioRef = useRef(null);
@@ -180,12 +181,10 @@ export default function App() {
 
           // Memperbarui ID dari Firebase
           setRegisteredFid(fid);
-
           // Memperbarui status
           setStatus("FCM terdaftar, menyimpan ke backend...");
 
-          const storedInstallationId = localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
-          if (storedInstallationId === fid) {
+          if (alreadyRegisteredRef.current) {
             setStatus("FCM Connected - Backend Synced");
             return
           }
@@ -211,7 +210,10 @@ export default function App() {
                 error.response?.data?.message ||
                 "Gagal menyimpan Installation ID"
               );
-            });
+            })
+            .finally(() => {
+              alreadyRegisteredRef.current = true;
+            })
         }
       );
 
@@ -271,14 +273,10 @@ export default function App() {
 
       // Mengambil laporan dari backend
       const report = result?.data || result;
-
       // Mengambil jumlah pengiriman berhasil
       const success = report?.successCount;
-
       // Mengambil jumlah pengiriman gagal
       const failed = report?.failureCount;
-
-      console.log(report);
 
       // Menampilkan hasil pengiriman
       if (typeof success === "number") {

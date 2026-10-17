@@ -32,9 +32,11 @@ export async function setupPushNotifications(onNotification, onRegistration) {
 		(installationId) => {
 
 			let storedInstallationId
-			storedInstallationId = localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
 
-			if (!storedInstallationId) {
+			 storedInstallationId =
+				localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
+
+			if (storedInstallationId !== installationId) {
 				localStorage.setItem(CAMERA_NOTES_INSTALLATION_ID, installationId);
 				storedInstallationId = installationId;
 			}
