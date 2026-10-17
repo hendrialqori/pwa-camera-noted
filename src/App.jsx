@@ -395,7 +395,7 @@ export default function App() {
               onClick={checkPushSubscription}
               className={`${buttonClass} bg-green-800`}
             >
-              Test Local Notification
+              Check Push Subscription
             </button>
           </section>
 
