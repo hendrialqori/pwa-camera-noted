@@ -1,8 +1,9 @@
 
 import { useEffect, useRef, useState } from "react";
-import { Toaster, toast } from "sonner";
+import { toast } from "sonner";
 
 import {
+  checkPushSubscription,
   getExistingInstallationId,
   setupPushNotifications,
   testLocalNotification,
@@ -270,6 +271,8 @@ export default function App() {
       // Mengambil jumlah pengiriman gagal
       const failed = report?.failureCount;
 
+      console.log(report);
+
       // Menampilkan hasil pengiriman
       if (typeof success === "number") {
         toast.info(
@@ -379,6 +382,13 @@ export default function App() {
               type="button"
               onClick={handleLocalTest}
               className={`${buttonClass} bg-gray-800`}
+            >
+              Test Local Notification
+            </button>
+             <button
+              type="button"
+              onClick={checkPushSubscription}
+              className={`${buttonClass} bg-green-800`}
             >
               Test Local Notification
             </button>

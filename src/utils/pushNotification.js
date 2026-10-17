@@ -1,130 +1,145 @@
 
 import {
-  getMessaging,
-  isSupported,
-  onMessage,
-  onRegistered,
-  register,
+	getMessaging,
+	isSupported,
+	onMessage,
+	onRegistered,
+	register,
 } from "firebase/messaging";
 import { getInstallations, getId } from "firebase/installations";
 
 import { app } from "../../firebase";
-import { VAPID_KEY } from "../constant/firebase";
-import { CAMERA_NOTES_INSTALLATION_ID } from "../constant/localStorage";
-import { playNotificationSound } from "./soundNotification";
+import { VAPID_KEY, } from "@/constant/firebase";
+import { CAMERA_NOTES_INSTALLATION_ID } from "@/constant/localStorage";
 
-export async function setupPushNotifications(
-  onNotification,
-  onRegistration
+const swFile = "/firebase-messaging-sw.js";
+const swScope = "/firebase-cloud-messaging-push-scope/";
+
+export async function setupPushNotifications(onNotification, onRegistration) {
+	// check if the browser supports notifications and service workers
+	checkNotificationSupport();
+
+	// create a service worker registration for Firebase Messaging
+	const sw = await navigator.serviceWorker.register(swFile, { scope: swScope }
+	);
+
+	// get the Firebase Messaging instance
+	const messaging = getMessaging(app);
+
+	// listen for registration and get the FCM Installation ID
+	const unsubscribeRegistration = onRegistered(
+		messaging,
+		(installationId) => {
+
+			let storedInstallationId
+			storedInstallationId = localStorage.getItem(CAMERA_NOTES_INSTALLATION_ID);
+
+			if (!storedInstallationId) {
+				localStorage.setItem(CAMERA_NOTES_INSTALLATION_ID, installationId);
+				storedInstallationId = installationId;
+			}
+
+			// Send this ID to your secure backend
+			// and associate it with the current user.
+			onRegistration?.(storedInstallationId);
+		}
+	);
+
+	// listen for incoming messages
+	const unsubscribeMessage = onMessage(
+		messaging,
+		async (payload) => onNotification?.(payload)
+	);
+
+	try {
+
+		// register the service worker with Firebase Messaging using the VAPID key
+		await register(messaging, {
+			vapidKey: VAPID_KEY,
+			serviceWorkerRegistration: sw
+		});
+
+	} catch (error) {
+		unsubscribeRegistration();
+		unsubscribeMessage();
+
+		throw error;
+	}
+
+	// return a cleanup function to unsubscribe from registration and message listeners
+	return () => {
+		unsubscribeRegistration();
+		unsubscribeMessage();
+	};
+}
+
+
+export async function testLocalNotification({
+	message = "Push notification local test berhasil!" } = {}
 ) {
-  if (!("Notification" in window)) {
-    throw new Error("Browser notifications unsupported");
-  }
+	if (!("Notification" in window)) {
+		throw new Error("Browser notifications unsupported");
+	}
 
-  if (!(await isSupported())) {
-    throw new Error("Firebase Messaging unsupported");
-  }
+	if (!("serviceWorker" in navigator)) {
+		throw new Error("Service workers unsupported");
+	}
 
-  const permission = await Notification.requestPermission();
+	const permission = await Notification.requestPermission();
 
-  if (permission !== "granted") {
-    throw new Error("Notification permission denied");
-  }
+	if (permission !== "granted") {
+		throw new Error("Notification permission denied");
+	}
 
-  const sw = await navigator.serviceWorker.register(
-    "/firebase-messaging-sw.js",
-    {
-      scope: "/firebase-cloud-messaging-push-scope/"
-    }
-  );
+	const registration = await navigator.serviceWorker.register(
+		swFile, { scope: swScope }
+	);
 
-  const messaging = getMessaging(app);
-
-  const unsubscribeRegistration = onRegistered(
-    messaging,
-    (installationId) => {
-      console.log("FCM Installation ID:", installationId);
-
-      let storedInstallationId
-
-      storedInstallationId = localStorage.getItem(
-        CAMERA_NOTES_INSTALLATION_ID
-      );
-
-      if (!storedInstallationId) {
-        console.log("No stored installation ID found. Storing new ID.");
-        // Menyimpan FID terbaru di browser
-        localStorage.setItem(
-          CAMERA_NOTES_INSTALLATION_ID,
-          installationId
-        );
-        storedInstallationId = installationId;
-      }
-
-      // Send this ID to your secure backend
-      // and associate it with the current user.
-      onRegistration?.(storedInstallationId);
-    }
-  );
-
-  const unsubscribeMessage = onMessage(
-    messaging,
-    async (payload) => {
-      console.log("[FCM] PESAN DITERIMA:", payload);
-
-      onNotification?.(payload);
-    }
-  );
-
-  try {
-    await register(messaging, {
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: sw
-    });
-
-  } catch (error) {
-    unsubscribeRegistration();
-    unsubscribeMessage();
-    throw error;
-  }
-
-  return () => {
-    unsubscribeRegistration();
-    unsubscribeMessage();
-  };
+	await registration.showNotification("Camera Notes Notification", {
+		body: message,
+		tag: "camera-notes-local-notification-test",
+	});
 }
 
-export async function testLocalNotification({ message = "Push notification local test berhasil!" } = {}) {
-  if (!("Notification" in window)) {
-    throw new Error("Browser notifications unsupported");
-  }
 
-  if (!("serviceWorker" in navigator)) {
-    throw new Error("Service workers unsupported");
-  }
-
-  const permission = await Notification.requestPermission();
-
-  if (permission !== "granted") {
-    throw new Error("Notification permission denied");
-  }
-
-  const registration = await navigator.serviceWorker.register(
-    "firebase-messaging-sw.js"
-  );
-
-  await registration.showNotification("Camera Notes", {
-    body: message,
-    tag: "camera-notes-test"
-  });
-}
-
-// Mengambil Installation ID lama dari Firebase
+// Get existing installation ID from Firebase Installations
 export async function getExistingInstallationId() {
-  const installations = getInstallations(app);
+	const installations = getInstallations(app);
+	return await getId(installations);
+}
 
-  // Jika sudah ada, gunakan ID lama.
-  // Jika belum ada, Firebase membuat ID baru.
-  return await getId(installations);
+async function checkNotificationSupport() {
+	if (!("Notification" in window)) {
+		throw new Error("Browser notifications unsupported");
+	}
+
+	if (!(await isSupported())) {
+		throw new Error("Firebase Messaging unsupported");
+	}
+
+	const permission = await Notification.requestPermission();
+
+	if (permission !== "granted") {
+		throw new Error("Notification permission denied");
+	}
+}
+
+export async function checkPushSubscription() {
+	const registrations =
+		await navigator.serviceWorker.getRegistrations();
+
+	for (const registration of registrations) {
+		const subscription =
+			await registration.pushManager.getSubscription();
+
+		alert(JSON.stringify({
+			serviceWorker: registration.active?.scriptURL,
+			scope: registration.scope,
+			subscribed: Boolean(subscription),
+			endpoint: subscription
+				? new URL(subscription.endpoint).origin
+				: null
+		}, null, 2));
+	}
 }
 
