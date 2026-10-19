@@ -13,7 +13,7 @@ import { VAPID_KEY, } from "@/constant/firebase";
 import { CAMERA_NOTES_INSTALLATION_ID } from "@/constant/localStorage";
 
 const swFile = "/firebase-messaging-sw.js";
-const swScope = "/firebase-cloud-messaging-push-scope/";
+const swScope = "/firebase-cloud-messaging-push";
 
 export async function setupPushNotifications(onNotification, onRegistration) {
 	// check if the browser supports notifications and service workers
@@ -27,16 +27,32 @@ export async function setupPushNotifications(onNotification, onRegistration) {
 	const messaging = getMessaging(app);
 
 	// listen for registration and get the FCM Installation ID
+
 	const unsubscribeRegistration = onRegistered(
 		messaging,
-		(installationId) => {
-			localStorage.setItem(CAMERA_NOTES_INSTALLATION_ID, installationId);
+		(fid) => {
+			// FID aktual dari Firebase
+			console.log("[FCM] CURRENT FID:", fid);
 
-			// Send this ID to your secure backend
-			// and associate it with the current user.
-			onRegistration?.(installationId);
+			// Bandingkan dengan ID sebelumnya
+			const oldFid = localStorage.getItem(
+				CAMERA_NOTES_INSTALLATION_ID
+			);
+
+			console.log("[FCM] OLD FID:", oldFid);
+			console.log("[FCM] ID CHANGED:", oldFid !== fid);
+
+			// Selalu simpan ID yang terbaru
+			localStorage.setItem(
+				CAMERA_NOTES_INSTALLATION_ID,
+				fid
+			);
+
+			// Kirim FID aktual ke App.jsx
+			onRegistration?.(fid);
 		}
 	);
+
 
 	// listen for incoming messages
 	const unsubscribeMessage = onMessage(
@@ -51,21 +67,9 @@ export async function setupPushNotifications(onNotification, onRegistration) {
 			serviceWorkerRegistration: sw
 		});
 
-		await sw.pushManager.subscribe({
-			userVisibleOnly: true,
-			applicationServerKey: VAPID_KEY
-		});
+		const subscription = await sw.pushManager.getSubscription();
 
-		const subscription =
-			await sw.pushManager.getSubscription();
-
-		console.log("[FCM] Subscription:", Boolean(subscription));
-
-		if (!subscription) {
-			throw new Error(
-				"FCM belum siap: Push Subscription tidak aktif"
-			);
-		}
+		console.log("[FCM] Subscribed:", Boolean(subscription));
 
 	} catch (error) {
 		console.error("Error setting up push notifications:", error);

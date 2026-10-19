@@ -13,8 +13,10 @@ import {
   sendBroadcastNotification,
   syncInstallationId,
 } from "./utils/api";
-import { CAMERA_NOTES_INSTALLATION_ID } from "./constant/localStorage";
 import { getDeviceInfo } from "./utils/deviceInfo";
+import Button from "./components/Button";
+
+import { BellRing } from 'lucide-react';
 
 // Lokasi file suara di folder public
 const SOUND_URL = "/message.mp3";
@@ -178,7 +180,7 @@ export default function App() {
         },
 
         // Callback saat Firebase berhasil registrasi
-        (fid) => {
+        async (fid) => {
           console.log("FCM Registered ID:", fid);
 
           // Memperbarui ID dari Firebase
@@ -191,37 +193,25 @@ export default function App() {
           //   return
           // }
 
-          const deviceInfo = getDeviceInfo();
-          console.log(deviceInfo);
-          
+          // const deviceInfo = getDeviceInfo();
+          // console.log(deviceInfo);
+
           // Menyimpan Installation ID ke Express
-          syncInstallationId({
-            installationId: fid,
-            deviceInfo
-          })
-            .then(() => {
-              setStatus("FCM Connected - Backend Synced");
 
-              toast.success(
-                "Installation ID berhasil disimpan"
-              );
+          try {
+            await syncInstallationId({
+              installationId: fid,
+              deviceInfo: "TEST 123"
             })
-            .catch((error) => {
-              console.error(
-                "Sync Error:",
-                error.response?.data || error
-              );
 
-              setStatus("FCM Connected - Backend Sync Failed");
+            toast.success(
+              "Installation ID berhasil disimpan"
+            );
 
-              toast.error(
-                error.response?.data?.message ||
-                "Gagal menyimpan Installation ID"
-              );
-            })
-            .finally(() => {
-              alreadyRegisteredRef.current = true;
-            })
+          } catch (error) {
+            if (error.response?.data.statusCode === 409) return
+            toast.error(error.response.data.message || 'Gagal menyimpan Installation ID')
+          }
         }
       );
 
@@ -370,14 +360,16 @@ export default function App() {
         <div className="mx-auto w-full max-w-md space-y-5">
 
           {/* HEADER */}
-          <header>
-            <h1 className="text-2xl font-bold text-gray-900">
-              FCM Broadcast Tester
-            </h1>
+          <header className="flex justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                FCM Broadcast Tester
+              </h1>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Camera Notes — Firebase + Express
-            </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Camera Notes — Firebase + Express
+              </p>
+            </div>
           </header>
 
           {/* FIREBASE REGISTRATION */}
@@ -444,13 +436,6 @@ export default function App() {
               className={`${buttonClass} bg-gray-800`}
             >
               Test Local Notification
-            </button>
-            <button
-              type="button"
-              onClick={checkPushSubscription}
-              className={`${buttonClass} bg-green-800`}
-            >
-              Check Push Subscription
             </button>
           </section>
 
