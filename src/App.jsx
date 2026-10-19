@@ -14,6 +14,7 @@ import {
   syncInstallationId,
 } from "./utils/api";
 import { CAMERA_NOTES_INSTALLATION_ID } from "./constant/localStorage";
+import { getDeviceInfo } from "./utils/deviceInfo";
 
 // Lokasi file suara di folder public
 const SOUND_URL = "/message.mp3";
@@ -185,13 +186,20 @@ export default function App() {
           // Memperbarui status
           setStatus("FCM terdaftar, menyimpan ke backend...");
 
-          if (alreadyRegisteredRef.current) {
-            setStatus("FCM Connected - Backend Synced");
-            return
-          }
+          // if (alreadyRegisteredRef.current) {
+          //   setStatus("FCM Connected - Backend Synced");
+          //   return
+          // }
+
+          const deviceInfo = getDeviceInfo();
+          console.log(deviceInfo);
+          
 
           // Menyimpan Installation ID ke Express
-          syncInstallationId(fid)
+          syncInstallationId({
+            installationId: fid,
+            deviceInfo
+          })
             .then(() => {
               setStatus("FCM Connected - Backend Synced");
 
@@ -303,51 +311,51 @@ export default function App() {
     }
   };
 
-const handleDebugFCM = async () => {
-  try {
-    // Periksa mode dan origin aplikasi
-    const info = {
-      origin: window.location.origin,
-      standalone: window.matchMedia(
-        "(display-mode: standalone)"
-      ).matches,
-      permission: Notification.permission,
-      controller:
-        navigator.serviceWorker.controller?.scriptURL ?? null,
-      workers: [],
-    };
+  const handleDebugFCM = async () => {
+    try {
+      // Periksa mode dan origin aplikasi
+      const info = {
+        origin: window.location.origin,
+        standalone: window.matchMedia(
+          "(display-mode: standalone)"
+        ).matches,
+        permission: Notification.permission,
+        controller:
+          navigator.serviceWorker.controller?.scriptURL ?? null,
+        workers: [],
+      };
 
-    // Ambil seluruh registrasi Service Worker
-    const registrations =
-      await navigator.serviceWorker.getRegistrations();
+      // Ambil seluruh registrasi Service Worker
+      const registrations =
+        await navigator.serviceWorker.getRegistrations();
 
-    for (const sw of registrations) {
-      // Periksa subscription setiap registrasi
-      const subscription =
-        await sw.pushManager.getSubscription();
+      for (const sw of registrations) {
+        // Periksa subscription setiap registrasi
+        const subscription =
+          await sw.pushManager.getSubscription();
 
-      info.workers.push({
-        script: sw.active?.scriptURL ?? null,
-        scope: sw.scope,
-        subscribed: Boolean(subscription),
-        endpointOrigin: subscription
-          ? new URL(subscription.endpoint).origin
-          : null,
+        info.workers.push({
+          script: sw.active?.scriptURL ?? null,
+          scope: sw.scope,
+          subscribed: Boolean(subscription),
+          endpointOrigin: subscription
+            ? new URL(subscription.endpoint).origin
+            : null,
+        });
+      }
+
+      // Tampilkan hasil pada halaman
+      setDebugInfo(info);
+
+      console.log("[FCM DIAGNOSTIC]", info);
+    } catch (error) {
+      console.error("[FCM DIAGNOSTIC ERROR]", error);
+
+      setDebugInfo({
+        error: error.message,
       });
     }
-
-    // Tampilkan hasil pada halaman
-    setDebugInfo(info);
-
-    console.log("[FCM DIAGNOSTIC]", info);
-  } catch (error) {
-    console.error("[FCM DIAGNOSTIC ERROR]", error);
-
-    setDebugInfo({
-      error: error.message,
-    });
-  }
-};
+  };
 
 
   // Class CSS reusable
