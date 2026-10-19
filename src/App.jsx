@@ -300,43 +300,156 @@ export default function App() {
     }
   };
 
+
   const handleDebugFCM = async () => {
     try {
-      // Periksa mode dan origin aplikasi
-      const info = {
-        origin: window.location.origin,
-        standalone: window.matchMedia(
-          "(display-mode: standalone)"
-        ).matches,
-        permission: Notification.permission,
-        controller:
-          navigator.serviceWorker.controller?.scriptURL ?? null,
-        workers: [],
-      };
+      // Deteksi apakah aplikasi berjalan sebagai PWA
+      const standalone = window.matchMedia(
+        "(display-mode: standalone)"
+      ).matches;
 
       // Ambil seluruh registrasi Service Worker
       const registrations =
         await navigator.serviceWorker.getRegistrations();
 
-      for (const sw of registrations) {
-        // Periksa subscription setiap registrasi
-        const subscription =
-          await sw.pushManager.getSubscription();
+      // Informasi lingkungan aplikasi
+      const info = {
+        timestamp: new Date().toISOString(),
 
-        info.workers.push({
-          script: sw.active?.scriptURL ?? null,
-          scope: sw.scope,
+        // Identitas halaman
+        href: window.location.href,
+        origin: window.location.origin,
+        pathname: window.location.pathname,
+
+        // Browser atau PWA terinstal
+        standalone,
+        displayMode: standalone ? "standalone" : "browser",
+
+        // Informasi browser dan perangkat
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+
+        // Status keamanan dan koneksi
+        secureContext: window.isSecureContext,
+        online: navigator.onLine,
+
+        // Dukungan Push Notification
+        notificationSupported: "Notification" in window,
+        pushSupported: "PushManager" in window,
+        serviceWorkerSupported: "serviceWorker" in navigator,
+
+        // Permission notifikasi
+        permission:
+          "Notification" in window
+            ? Notification.permission
+            : "unsupported",
+
+        // Service Worker yang mengontrol halaman
+        controller:
+          navigator.serviceWorker.controller?.scriptURL ?? null,
+
+        // Jumlah Service Worker terdaftar
+        totalWorkers: registrations.length,
+
+        workers: [],
+
+        // Status khusus Firebase
+        fcm: {
+          workerFound: false,
+          workerActive: false,
+          subscribed: false,
+          scope: null,
+          endpointOrigin: null,
+        },
+      };
+
+      // Periksa setiap Service Worker
+      for (const registration of registrations) {
+        let subscription = null;
+        let subscriptionError = null;
+
+        try {
+          // Ambil Push Subscription milik worker
+          subscription =
+            await registration.pushManager.getSubscription();
+        } catch (error) {
+          subscriptionError = error.message;
+        }
+
+        const workerInfo = {
+          script: registration.active?.scriptURL ?? null,
+          scope: registration.scope,
+
+          // Lifecycle Service Worker
+          activeState: registration.active?.state ?? null,
+          installing: Boolean(registration.installing),
+          waiting: Boolean(registration.waiting),
+
+          // Status Push Subscription
           subscribed: Boolean(subscription),
+
           endpointOrigin: subscription
             ? new URL(subscription.endpoint).origin
             : null,
-        });
+
+          // Metadata subscription
+          expirationTime:
+            subscription?.expirationTime ?? null,
+
+          // Error pemeriksaan jika ada
+          subscriptionError,
+        };
+
+        info.workers.push(workerInfo);
+
+        // Identifikasi worker khusus Firebase
+        const isFCMWorker =
+          registration.scope.endsWith(
+            "/firebase-cloud-messaging-push-scope/"
+          ) ||
+          registration.active?.scriptURL.includes(
+            "firebase-messaging-sw.js"
+          );
+
+        if (isFCMWorker) {
+          info.fcm = {
+            workerFound: true,
+            workerActive:
+              registration.active?.state === "activated",
+            subscribed: Boolean(subscription),
+            scope: registration.scope,
+            endpointOrigin: subscription
+              ? new URL(subscription.endpoint).origin
+              : null,
+            subscriptionError,
+          };
+        }
       }
 
-      // Tampilkan hasil pada halaman
+      // Kesimpulan diagnostik
+      if (!info.fcm.workerFound) {
+        info.diagnosis =
+          "FCM Service Worker tidak ditemukan";
+      } else if (!info.fcm.workerActive) {
+        info.diagnosis =
+          "FCM Service Worker belum aktif";
+      } else if (info.fcm.subscriptionError) {
+        info.diagnosis =
+          "Gagal membaca Push Subscription";
+      } else if (!info.fcm.subscribed) {
+        info.diagnosis =
+          "FCM Service Worker aktif, tetapi Push Subscription tidak tersedia";
+      } else {
+        info.diagnosis =
+          "FCM Push Subscription aktif";
+      }
+
+      // Tampilkan hasil pada React
       setDebugInfo(info);
 
+      // Log untuk browser DevTools
       console.log("[FCM DIAGNOSTIC]", info);
+
     } catch (error) {
       console.error("[FCM DIAGNOSTIC ERROR]", error);
 
