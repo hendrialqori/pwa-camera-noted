@@ -194,7 +194,6 @@ export default function App() {
           const deviceInfo = getDeviceInfo();
           console.log(deviceInfo);
           
-
           // Menyimpan Installation ID ke Express
           syncInstallationId({
             installationId: fid,
@@ -240,7 +239,7 @@ export default function App() {
 
       setStatus("Registrasi FCM gagal");
 
-      toast.error(
+      toast.warning(
         error.message || "Gagal melakukan registrasi"
       );
     } finally {

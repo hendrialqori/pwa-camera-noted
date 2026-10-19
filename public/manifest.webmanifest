@@ -1,6 +1,6 @@
 {
-  "name": "BP1 Report App",
-  "short_name": "BP1 Report App",
+  "name": "Putra Borneo Satu App",
+  "short_name": "Putra Borneo Satu App",
   "description": "PWA sederhana untuk title, gambar, dan note.",
   "start_url": "/",
   "display": "standalone",
