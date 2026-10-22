@@ -8,7 +8,7 @@ importScripts(
 );
 
 firebase.initializeApp({
- apiKey: "AIzaSyBhr0dzess4x8D512tfRicvd7nqjYMbaK4",
+  apiKey: "AIzaSyBhr0dzess4x8D512tfRicvd7nqjYMbaK4",
   authDomain: "camera-note-app.firebaseapp.com",
   projectId: "camera-note-app",
   storageBucket: "camera-note-app.firebasestorage.app",
